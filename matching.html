@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Vocab Matching Game</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071022 0%,#071827 100%);color:#e6eef6;display:flex;align-items:center;justify-content:center;padding:24px}
+    .wrap{width:100%;max-width:960px}
+    h1{margin:0 0 16px;font-size:24px}
+    .panel{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
+    textarea{width:100%;height:200px;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#071125;color:inherit;resize:vertical}
+    button{background:var(--accent);border:0;padding:10px 14px;border-radius:10px;color:#042027;font-weight:600;cursor:pointer}
+    .gameGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
+    .card{background:#071125;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .2s}
+    .card.revealed{background:var(--accent);color:#042027;font-weight:700;cursor:default}
+    .card.matched{background:#16a34a;color:white;cursor:default}
+    .hidden{display:none}
+    .info{margin-top:12px;font-size:14px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="startScreen" class="panel">
+      <h1>Vocab Matching Game</h1>
+      <p class="info">Enter pairs with <strong>odd line = word</strong>, <strong>even line = definition</strong>. 8 pairs will be randomly selected for a 4x4 grid.</p>
+      <textarea id="pairs"></textarea>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button id="play">Play</button>
+        <button id="clear">Clear</button>
+      </div>
+      <p class="info" id="bestTimeInfo">Best Time: none</p>
+    </div>
+    <div id="gameScreen" class="panel hidden">
+      <h1>Find the Matches</h1>
+      <div id="grid" class="gameGrid"></div>
+      <div class="info"><span id="matches">0</span> matches found. | Time: <span id="timer">0.0</span>s</div>
+      <div style="margin-top:12px"><button id="restart">Restart</button></div>
+    </div>
+  </div>
+  <script>
+    const pairsTA = document.getElementById('pairs');
+    const playBtn = document.getElementById('play');
+    const clearBtn = document.getElementById('clear');
+    const restartBtn = document.getElementById('restart');
+    const startScreen = document.getElementById('startScreen');
+    const gameScreen = document.getElementById('gameScreen');
+    const grid = document.getElementById('grid');
+    const matchesEl = document.getElementById('matches');
+    const timerEl = document.getElementById('timer');
+    const bestTimeInfo = document.getElementById('bestTimeInfo');
+
+    let cards = [];
+    let firstPick = null;
+    let lockBoard = false;
+    let matches = 0;
+    let timerInterval;
+    let startTime;
+
+    function parsePairs(text){
+      const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+      const out = [];
+      for(let i=0;i<lines.length;i+=2){
+        if(lines[i+1]) out.push({front:lines[i], back:lines[i+1]});
+      }
+      return out;
+    }
+
+    function shuffleArray(a){
+      for(let i=a.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [a[i],a[j]]=[a[j],a[i]];
+      }
+    }
+
+    function buildGame(pairs){
+      shuffleArray(pairs);
+      const selected = pairs.slice(0,8);
+      cards = [];
+      selected.forEach((p,i)=>{
+        cards.push({id:i, text:p.front, type:'front'});
+        cards.push({id:i, text:p.back, type:'back'});
+      });
+      shuffleArray(cards);
+      grid.innerHTML = '';
+      cards.forEach((c)=>{
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.textContent = c.text;
+        div.dataset.id = c.id;
+        div.dataset.type = c.type;
+        div.addEventListener('click', ()=>selectCard(div));
+        grid.appendChild(div);
+      });
+      matches = 0;
+      matchesEl.textContent = matches;
+      firstPick = null;
+      lockBoard = false;
+      timerEl.textContent = '0.0';
+      clearInterval(timerInterval);
+      startTime = Date.now();
+      timerInterval = setInterval(()=>{
+        const elapsed = (Date.now() - startTime)/1000;
+        timerEl.textContent = elapsed.toFixed(1);
+      },100);
+    }
+
+    function endGame(){
+      clearInterval(timerInterval);
+      const elapsed = (Date.now() - startTime)/1000;
+      const key = 'bestTime_'+hashList(pairsTA.value);
+      const prev = localStorage.getItem(key);
+      if(!prev || elapsed < parseFloat(prev)){
+        localStorage.setItem(key, elapsed);
+      }
+      updateBestTimeDisplay();
+    }
+
+    function hashList(str){
+      let hash=0;for(let i=0;i<str.length;i++){hash=((hash<<5)-hash)+str.charCodeAt(i);hash|=0;}
+      return hash;
+    }
+
+    function selectCard(cardEl){
+      if(lockBoard || cardEl.classList.contains('revealed') || cardEl.classList.contains('matched')) return;
+      cardEl.classList.add('revealed');
+      if(!firstPick){
+        firstPick = cardEl;
+        return;
+      }
+      if(firstPick.dataset.id === cardEl.dataset.id && firstPick !== cardEl){
+        firstPick.classList.add('matched');
+        cardEl.classList.add('matched');
+        matches++;
+        matchesEl.textContent = matches;
+        firstPick = null;
+        if(matches === 8){
+          endGame();
+        }
+      } else {
+        lockBoard = true;
+        setTimeout(()=>{
+          firstPick.classList.remove('revealed');
+          cardEl.classList.remove('revealed');
+          firstPick = null;
+          lockBoard = false;
+        }, 800);
+      }
+    }
+
+    playBtn.addEventListener('click', ()=>{
+      const pairs = parsePairs(pairsTA.value);
+      if(pairs.length<8){alert('Please enter at least 8 pairs');return;}
+      localStorage.setItem('matchingPairs', pairsTA.value);
+      buildGame(pairs);
+      startScreen.classList.add('hidden');
+      gameScreen.classList.remove('hidden');
+    });
+
+    clearBtn.addEventListener('click', ()=>{
+      pairsTA.value = '';
+      localStorage.removeItem('matchingPairs');
+      bestTimeInfo.textContent = 'Best Time: none';
+    });
+
+    restartBtn.addEventListener('click', ()=>{
+      gameScreen.classList.add('hidden');
+      startScreen.classList.remove('hidden');
+    });
+
+    function updateBestTimeDisplay(){
+      const key = 'bestTime_'+hashList(pairsTA.value);
+      const best = localStorage.getItem(key);
+      bestTimeInfo.textContent = best ? `Best Time: ${parseFloat(best).toFixed(1)}s` : 'Best Time: none';
+    }
+
+    window.addEventListener('load', ()=>{
+      const saved = localStorage.getItem('matchingPairs');
+      if(saved) pairsTA.value = saved;
+      updateBestTimeDisplay();
+    });
+  </script>
+</body>
+</html>
