@@ -1,8 +1,7 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Flashcard Study</title>
   <style>
     :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
@@ -41,7 +40,7 @@
     <div class="grid">
       <div class="panel">
         <label for="pairs">Card list (Front line, then Back line)</label>
-        <textarea id="pairs"></textarea>
+        <textarea id="pairs" style="height: 15px;"></textarea>
         <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
           <div style="flex:1">
             <label for="mode">Mode</label>
@@ -53,7 +52,7 @@
           </div>
           <div>
             <label for="random">Randomize order</label><br>
-            <input type="checkbox" id="random" checked />
+            <input type="checkbox" id="random" checked="">
           </div>
         </div>
         <div class="controls">
@@ -66,15 +65,16 @@
       <div class="panel">
         <div class="cardView">
           <div class="sub">Progress: <span id="progressText">0 / 0</span></div>
-          <div class="progress" aria-hidden><i id="progressBar"></i></div>
+          <div class="progress" aria-hidden=""><i id="progressBar" style="width: 0%;"></i></div>
           <div class="prompt" id="prompt">—</div>
           <div class="answer" id="answer">&nbsp;</div>
-          <div class="sub" id="directionHint">Choose a mode and press Start</div>
+          <div class="sub" id="directionHint">Load a list to begin.</div>
           <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-            <input type="text" id="response" placeholder="Type your answer (optional)" />
+            <input type="text" id="response" placeholder="Type your answer (optional)">
             <button id="check">Check</button>
             <button id="show" class="ghost">Show answer</button>
             <button id="next" class="ghost">Next</button>
+            <button id="reviewMissed" class="ghost" style="display:none;">Review missed flashcards</button>
           </div>
           <div class="footer">
             <div class="meta">Shown: <span id="shownCount">0</span></div>
@@ -99,11 +99,14 @@
     const checkBtn = document.getElementById('check');
     const showBtn = document.getElementById('show');
     const nextBtn = document.getElementById('next');
+    const reviewBtn = document.getElementById('reviewMissed');
+
     let cards = [];
     let order = [];
     let currentIndex = -1;
     let shown = 0;
     let directionForCard = {};
+    let missed = [];
 
     function parsePairs(text){
       const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
@@ -138,7 +141,12 @@
 
     function renderCard(){
       if(order.length===0){promptEl.textContent = '—';answerEl.textContent='\xa0';directionHint.textContent = 'Load a list to begin.';return;}
-      if(currentIndex<0 || currentIndex>=order.length){promptEl.textContent='Done';directionHint.textContent='You reached the end.';return;}
+      if(currentIndex<0 || currentIndex>=order.length){
+        promptEl.textContent='Done';
+        directionHint.textContent='You reached the end.';
+        if(missed.length > 0){ reviewBtn.style.display = 'inline-block'; }
+        return;
+      }
       const idx = order[currentIndex];
       const card = cards[idx];
       const dir = getDirection(idx);
@@ -157,7 +165,13 @@
     function nextCard(){
       if(order.length===0) return;
       currentIndex++;
-      if(currentIndex>=order.length){currentIndex = order.length;promptEl.textContent = 'Finished — well done!';directionHint.textContent = 'Reset or reshuffle to review again.';return;}
+      if(currentIndex>=order.length){
+        currentIndex = order.length;
+        promptEl.textContent = 'Finished — well done!';
+        directionHint.textContent = 'Reset or reshuffle to review again.';
+        if(missed.length > 0){ reviewBtn.style.display = 'inline-block'; }
+        return;
+      }
       shown = currentIndex; updateProgress(); renderCard();
     }
 
@@ -182,6 +196,7 @@
         setTimeout(()=>{ nextCard(); }, 600);
       } else {
         answerEl.textContent = `No — answer: ${dir==='f2b'?card.back:card.front}`;
+        missed.push(idx);
       }
     }
 
@@ -205,25 +220,32 @@
       cards = parsePairs(pairsTA.value);
       order = cards.map((_,i)=>i);
       if(randomChk.checked) shuffleArray(order);
-      currentIndex=-1;shown=0;directionForCard={};updateProgress();renderCard();
+      currentIndex=-1;shown=0;directionForCard={};missed=[];reviewBtn.style.display='none';updateProgress();renderCard();
     });
     document.getElementById('start').addEventListener('click', ()=>{
       currentIndex=-1;shown=0;
       if(randomChk.checked) shuffleArray(order);
+      missed=[];reviewBtn.style.display='none';
       nextCard();
     });
     document.getElementById('shuffle').addEventListener('click', ()=>{
       shuffleArray(order);
-      currentIndex=-1;shown=0;updateProgress();renderCard();
+      currentIndex=-1;shown=0;missed=[];reviewBtn.style.display='none';updateProgress();renderCard();
     });
     document.getElementById('reset').addEventListener('click', ()=>{
-      cards=[];order=[];currentIndex=-1;shown=0;directionForCard={};pairsTA.value='';savePairs();updateProgress();renderCard();
+      cards=[];order=[];currentIndex=-1;shown=0;directionForCard={};pairsTA.value='';missed=[];reviewBtn.style.display='none';savePairs();updateProgress();renderCard();
     });
     showBtn.addEventListener('click', showAnswer);
     nextBtn.addEventListener('click', nextCard);
     checkBtn.addEventListener('click', checkAnswer);
     responseInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); checkAnswer(); } });
     pairsTA.addEventListener('input', savePairs);
+
+    reviewBtn.addEventListener('click', ()=>{
+      if(missed.length===0) return;
+      order = [...missed];
+      missed = [];
+      currentIndex=-1;shown=0;reviewBtn.style.display='none';updateProgress();renderCard();
+    });
   </script>
-</body>
-</html>
+</body></html>
