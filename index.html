@@ -54,13 +54,19 @@
       cursor:pointer;
       transition:all 0.25s ease;
       box-shadow:0 2px 6px rgba(6,182,212,0.2);
+      animation:none;
     }
     button:hover {
       transform:scale(1.08);
-      box-shadow:0 0 16px rgba(6,182,212,0.6);
+      box-shadow:0 0 18px rgba(6,182,212,0.7);
+      animation:pulse 1.4s infinite;
     }
     button:active {
       transform:scale(0.96);
+    }
+    @keyframes pulse {
+      0%,100%{box-shadow:0 0 12px rgba(6,182,212,0.4);}
+      50%{box-shadow:0 0 20px rgba(6,182,212,0.9);}
     }
   </style>
 </head>
@@ -74,7 +80,6 @@
     </div>
   </div>
 
-  <!-- Click Sound -->
   <audio id="clickSound" src="https://actions.google.com/sounds/v1/tools/18v_cordless_drill_switch.ogg" preload="auto"></audio>
 
   <script>
@@ -84,22 +89,12 @@
       clickSound.play();
     }
 
-    // buttons
-    const matchingBtn = document.getElementById('matchingBtn');
-    const flashcardsBtn = document.getElementById('flashcardsBtn');
-
-    // add sound
     document.querySelectorAll('button').forEach(btn=>{
       btn.addEventListener('click', playClick);
     });
 
-    matchingBtn.addEventListener('click', () => {
-      window.location.href = "matching.html";
-    });
-
-    flashcardsBtn.addEventListener('click', () => {
-      window.location.href = "flashcards.html";
-    });
+    matchingBtn.onclick = () => window.location.href = "matching.html";
+    flashcardsBtn.onclick = () => window.location.href = "flashcards.html";
   </script>
 </body>
 </html>
