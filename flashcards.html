@@ -16,8 +16,11 @@
     label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
     .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
     select,input[type="checkbox"]{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-    button{background:var(--accent);border:0;padding:10px 12px;border-radius:10px;color:#042027;font-weight:600;cursor:pointer}
-    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
+    button{background:var(--accent);border:0;padding:10px 12px;border-radius:10px;color:#042027;font-weight:600;cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 6px rgba(6,182,212,0.2)}
+    button:hover{transform:scale(1.08);box-shadow:0 4px 16px rgba(6,182,212,0.45)}
+    button:active{transform:scale(0.96)}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600;box-shadow:none}
+    button.ghost:hover{color:var(--accent);border-color:var(--accent);box-shadow:0 2px 12px rgba(6,182,212,0.25)}
     .cardView{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:28px;min-height:280px}
     .prompt{font-size:48px;font-weight:700}
     .sub{font-size:14px;color:var(--muted)}
@@ -87,7 +90,16 @@
       </div>
     </div>
   </div>
+  <audio id="clickSound" src="https://actions.google.com/sounds/v1/tools/18v_cordless_drill_switch.ogg" preload="auto"></audio>
   <script>
+    const clickSound = document.getElementById('clickSound');
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        clickSound.currentTime = 0;
+        clickSound.play();
+      });
+    });
+
     const pairsTA = document.getElementById('pairs');
     const modeSel = document.getElementById('mode');
     const randomChk = document.getElementById('random');
@@ -117,9 +129,7 @@
       const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
       const out = [];
       for(let i=0;i<lines.length;i+=2){
-        if(lines[i+1]){
-          out.push({front:lines[i], back:lines[i+1]});
-        }
+        if(lines[i+1]) out.push({front:lines[i], back:lines[i+1]});
       }
       return out;
     }
@@ -134,138 +144,81 @@
 
     function getDirection(idx){
       if(modeSel.value==='both'){
-        if(!directionForCard[idx]){
-          directionForCard[idx] = (Math.random()<0.5?'f2b':'b2f');
-        }
+        if(!directionForCard[idx]) directionForCard[idx]=(Math.random()<0.5?'f2b':'b2f');
         return directionForCard[idx];
       }
-      if(modeSel.value==='front-to-back') return 'f2b';
-      if(modeSel.value==='back-to-front') return 'b2f';
-      return 'f2b';
+      return modeSel.value==='back-to-front'?'b2f':'f2b';
     }
 
     function renderCard(){
-      if(order.length===0){promptEl.textContent = '—';answerEl.textContent='\xa0';directionHint.textContent = 'Load a list to begin.';return;}
-      if(currentIndex<0 || currentIndex>=order.length){
-        promptEl.textContent='Done';
-        directionHint.textContent='You reached the end.';
-        if(missed.length > 0){ reviewBtn.style.display = 'inline-block'; }
-        if(marked.length > 0){ reviewMarkedBtn.style.display = 'inline-block'; }
+      if(order.length===0){promptEl.textContent='—';answerEl.innerHTML='&nbsp;';directionHint.textContent='Load a list to begin.';return;}
+      if(currentIndex<0||currentIndex>=order.length){
+        promptEl.textContent='Done';directionHint.textContent='You reached the end.';
+        if(missed.length>0) reviewBtn.style.display='inline-block';
+        if(marked.length>0) reviewMarkedBtn.style.display='inline-block';
         return;
       }
-      const idx = order[currentIndex];
-      const card = cards[idx];
-      const dir = getDirection(idx);
-
-      if(dir==='f2b'){
-        promptEl.textContent = card.front;
-        directionHint.textContent = 'Show front → guess back';
-      } else {
-        promptEl.textContent = card.back;
-        directionHint.textContent = 'Show back → guess front';
-      }
-      answerEl.textContent = '\xa0';
-      responseInput.value = '';
+      const idx=order[currentIndex];
+      const card=cards[idx];
+      const dir=getDirection(idx);
+      promptEl.textContent=dir==='f2b'?card.front:card.back;
+      directionHint.textContent=dir==='f2b'?'Show front → guess back':'Show back → guess front';
+      answerEl.innerHTML='&nbsp;';responseInput.value='';
     }
 
     function nextCard(){
-      if(order.length===0) return;
+      if(order.length===0)return;
       currentIndex++;
       if(currentIndex>=order.length){
-        currentIndex = order.length;
-        promptEl.textContent = 'Finished — well done!';
-        directionHint.textContent = 'Reset or reshuffle to review again.';
-        if(missed.length > 0){ reviewBtn.style.display = 'inline-block'; }
-        if(marked.length > 0){ reviewMarkedBtn.style.display = 'inline-block'; }
+        promptEl.textContent='Finished — well done!';directionHint.textContent='Reset or reshuffle to review again.';
+        if(missed.length>0) reviewBtn.style.display='inline-block';
+        if(marked.length>0) reviewMarkedBtn.style.display='inline-block';
         return;
       }
-      shown = currentIndex; updateProgress(); renderCard();
+      shown=currentIndex;updateProgress();renderCard();
     }
 
     function showAnswer(){
-      if(currentIndex<0 || currentIndex>=order.length) return;
-      const idx = order[currentIndex];
-      const card = cards[idx];
-      const dir = getDirection(idx);
-      answerEl.textContent = (dir==='f2b'?card.back:card.front);
+      if(currentIndex<0||currentIndex>=order.length)return;
+      const idx=order[currentIndex];
+      const card=cards[idx];
+      const dir=getDirection(idx);
+      answerEl.textContent=dir==='f2b'?card.back:card.front;
     }
 
     function checkAnswer(){
-      const text = responseInput.value.trim();
-      if(text==='') return showAnswer();
-      if(currentIndex<0 || currentIndex>=order.length) return;
-      const idx = order[currentIndex];
-      const card = cards[idx];
-      const dir = getDirection(idx);
-      const correct = (dir==='f2b'?card.back:card.front).toLowerCase();
+      const text=responseInput.value.trim();
+      if(text==='')return showAnswer();
+      if(currentIndex<0||currentIndex>=order.length)return;
+      const idx=order[currentIndex];
+      const card=cards[idx];
+      const dir=getDirection(idx);
+      const correct=(dir==='f2b'?card.back:card.front).toLowerCase();
       if(text.toLowerCase()===correct){
-        answerEl.textContent = 'Correct ✓';
-        setTimeout(()=>{ nextCard(); }, 600);
+        answerEl.textContent='Correct ✓';setTimeout(()=>{nextCard();},600);
       } else {
-        answerEl.textContent = `No — answer: ${dir==='f2b'?card.back:card.front}`;
+        answerEl.textContent=`No — answer: ${dir==='f2b'?card.back:card.front}`;
         if(!missed.includes(idx)) missed.push(idx);
       }
     }
 
-    function shuffleArray(a){
-      for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
-    }
+    function shuffleArray(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
 
-    function savePairs(){
-      localStorage.setItem('elementPairs', pairsTA.value);
-    }
-
-    function loadPairs(){
-      const saved = localStorage.getItem('elementPairs');
-      if(saved){pairsTA.value = saved;}
-    }
-
+    function savePairs(){localStorage.setItem('elementPairs',pairsTA.value);}
+    function loadPairs(){const saved=localStorage.getItem('elementPairs');if(saved)pairsTA.value=saved;}
     loadPairs();
 
-    document.getElementById('load').addEventListener('click', ()=>{
-      savePairs();
-      cards = parsePairs(pairsTA.value);
-      order = cards.map((_,i)=>i);
-      if(randomChk.checked) shuffleArray(order);
-      currentIndex=-1;shown=0;directionForCard={};missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';updateProgress();renderCard();
-    });
-    document.getElementById('start').addEventListener('click', ()=>{
-      currentIndex=-1;shown=0;
-      if(randomChk.checked) shuffleArray(order);
-      missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';
-      nextCard();
-    });
-    document.getElementById('shuffle').addEventListener('click', ()=>{
-      shuffleArray(order);
-      currentIndex=-1;shown=0;missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';updateProgress();renderCard();
-    });
-    document.getElementById('reset').addEventListener('click', ()=>{
-      cards=[];order=[];currentIndex=-1;shown=0;directionForCard={};pairsTA.value='';missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';savePairs();updateProgress();renderCard();
-    });
-    showBtn.addEventListener('click', showAnswer);
-    nextBtn.addEventListener('click', nextCard);
-    checkBtn.addEventListener('click', checkAnswer);
-    markBtn.addEventListener('click', ()=>{
-      if(currentIndex>=0 && currentIndex<order.length){ 
-        const idx = order[currentIndex];
-        if(!marked.includes(idx)) marked.push(idx);
-      }
-    });
-    responseInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); checkAnswer(); } });
-    pairsTA.addEventListener('input', savePairs);
-
-    reviewBtn.addEventListener('click', ()=>{
-      if(missed.length===0) return;
-      order = [...missed];
-      missed = [];
-      currentIndex=-1;shown=0;reviewBtn.style.display='none';updateProgress();renderCard();
-    });
-
-    reviewMarkedBtn.addEventListener('click', ()=>{
-      if(marked.length===0) return;
-      order = [...marked];
-      marked = [];
-      currentIndex=-1;shown=0;reviewMarkedBtn.style.display='none';updateProgress();renderCard();
-    });
+    document.getElementById('load').addEventListener('click',()=>{savePairs();cards=parsePairs(pairsTA.value);order=cards.map((_,i)=>i);if(randomChk.checked)shuffleArray(order);currentIndex=-1;shown=0;directionForCard={};missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';updateProgress();renderCard();});
+    document.getElementById('start').addEventListener('click',()=>{currentIndex=-1;shown=0;if(randomChk.checked)shuffleArray(order);missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';nextCard();});
+    document.getElementById('shuffle').addEventListener('click',()=>{shuffleArray(order);currentIndex=-1;shown=0;missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';updateProgress();renderCard();});
+    document.getElementById('reset').addEventListener('click',()=>{cards=[];order=[];currentIndex=-1;shown=0;directionForCard={};pairsTA.value='';missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';savePairs();updateProgress();renderCard();});
+    showBtn.addEventListener('click',showAnswer);
+    nextBtn.addEventListener('click',nextCard);
+    checkBtn.addEventListener('click',checkAnswer);
+    markBtn.addEventListener('click',()=>{if(currentIndex>=0&&currentIndex<order.length){const idx=order[currentIndex];if(!marked.includes(idx))marked.push(idx);}});
+    responseInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();checkAnswer();}});
+    pairsTA.addEventListener('input',savePairs);
+    reviewBtn.addEventListener('click',()=>{if(missed.length===0)return;order=[...missed];missed=[];currentIndex=-1;shown=0;reviewBtn.style.display='none';updateProgress();renderCard();});
+    reviewMarkedBtn.addEventListener('click',()=>{if(marked.length===0)return;order=[...marked];marked=[];currentIndex=-1;shown=0;reviewMarkedBtn.style.display='none';updateProgress();renderCard();});
   </script>
 </body></html>
