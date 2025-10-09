@@ -12,9 +12,13 @@
     h1{margin:0 0 16px;font-size:24px}
     .panel{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
     textarea{width:100%;height:200px;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#071125;color:inherit;resize:vertical}
-    button{background:var(--accent);border:0;padding:10px 14px;border-radius:10px;color:#042027;font-weight:600;cursor:pointer}
+    button{background:var(--accent);border:0;padding:10px 14px;border-radius:10px;color:#042027;font-weight:600;cursor:pointer;transition:all .2s ease;box-shadow:0 2px 6px rgba(6,182,212,0.2)}
+    button:hover{transform:scale(1.08);box-shadow:0 4px 16px rgba(6,182,212,0.45)}
+    button:active{transform:scale(0.96)}
     .gameGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}
-    .card{background:#071125;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .2s}
+    .card{background:#071125;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .25s ease}
+    .card:hover:not(.matched):not(.revealed){border-color:var(--accent);box-shadow:0 0 10px rgba(6,182,212,0.6)}
+    .card.hoverMatch{border-color:var(--accent);box-shadow:0 0 16px rgba(6,182,212,0.9)}
     .card.revealed{background:var(--accent);color:#042027;font-weight:700;cursor:default}
     .card.matched{background:#16a34a;color:white;cursor:default}
     .hidden{display:none}
@@ -40,6 +44,10 @@
       <div style="margin-top:12px"><button id="restart">Restart</button></div>
     </div>
   </div>
+
+  <!-- Click Sound -->
+  <audio id="clickSound" src="https://actions.google.com/sounds/v1/tools/18v_cordless_drill_switch.ogg" preload="auto"></audio>
+
   <script>
     const pairsTA = document.getElementById('pairs');
     const playBtn = document.getElementById('play');
@@ -51,6 +59,7 @@
     const matchesEl = document.getElementById('matches');
     const timerEl = document.getElementById('timer');
     const bestTimeInfo = document.getElementById('bestTimeInfo');
+    const clickSound = document.getElementById('clickSound');
 
     let cards = [];
     let firstPick = null;
@@ -58,6 +67,16 @@
     let matches = 0;
     let timerInterval;
     let startTime;
+
+    function playClick(){
+      clickSound.currentTime = 0;
+      clickSound.play();
+    }
+
+    // Add sound to all buttons
+    document.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', playClick);
+    });
 
     function parsePairs(text){
       const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
@@ -91,7 +110,12 @@
         div.textContent = c.text;
         div.dataset.id = c.id;
         div.dataset.type = c.type;
-        div.addEventListener('click', ()=>selectCard(div));
+
+        div.addEventListener('mouseenter', ()=>highlightPair(div, true));
+        div.addEventListener('mouseleave', ()=>highlightPair(div, false));
+
+        div.addEventListener('click', ()=>{ playClick(); selectCard(div); });
+
         grid.appendChild(div);
       });
       matches = 0;
@@ -105,6 +129,15 @@
         const elapsed = (Date.now() - startTime)/1000;
         timerEl.textContent = elapsed.toFixed(1);
       },100);
+    }
+
+    function highlightPair(cardEl, on){
+      const id = cardEl.dataset.id;
+      const pair = [...grid.children].filter(c => c.dataset.id === id);
+      pair.forEach(c=>{
+        if(on) c.classList.add('hoverMatch');
+        else c.classList.remove('hoverMatch');
+      });
     }
 
     function endGame(){
