@@ -7,7 +7,7 @@
 <style>
   :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
   *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
-  body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071022 0%,#071827 100%);color:#e6eef6;display:flex;align-items:center;justify-content:center;padding:24px}
+  body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071022 0%,#071827 100%);color:#e6eef6;display:flex;align-items:center;justify-content:center;padding:24px;transition:background-color 0.5s ease}
   .wrap{width:100%;max-width:700px}
   h1{margin:0 0 16px;font-size:24px}
   .panel{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
@@ -25,6 +25,23 @@
   table{width:100%;border-collapse:collapse;margin-top:12px}
   td,th{border:1px solid rgba(255,255,255,0.1);padding:6px;text-align:left}
   th{background:#071125}
+  /* Stamp Style */
+  .grade-stamp {
+    position:absolute;
+    top:20px;
+    right:40px;
+    font-size:80px;
+    font-weight:900;
+    opacity:0.25;
+    transform:rotate(-10deg) scale(0.8);
+    animation:stampIn 0.7s ease forwards;
+    text-shadow:2px 2px 6px rgba(0,0,0,0.4);
+  }
+  @keyframes stampIn {
+    0% {opacity:0; transform:scale(3) rotate(-10deg);}
+    60% {opacity:0.3; transform:scale(1.05) rotate(-10deg);}
+    100% {opacity:0.25; transform:scale(0.8) rotate(-10deg);}
+  }
 </style>
 </head>
 <body>
@@ -61,8 +78,9 @@
   </div>
 
   <!-- Results -->
-  <div id="resultScreen" class="panel hidden">
+  <div id="resultScreen" class="panel hidden" style="position:relative;">
     <h1>Results</h1>
+    <div id="gradeStamp" class="grade-stamp hidden"></div>
     <p id="scoreText"></p>
     <div class="results" id="resultsTable"></div>
     <button id="menuBtn">Main Menu</button>
@@ -86,6 +104,7 @@
   const scoreText = document.getElementById('scoreText');
   const resultsTable = document.getElementById('resultsTable');
   const menuBtn = document.getElementById('menuBtn');
+  const gradeStamp = document.getElementById('gradeStamp');
 
   let pairs = [];
   let currentIndex = 0;
@@ -108,6 +127,11 @@
   }
 
   function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+
+  function flashBackground(color){
+    document.body.style.backgroundColor = color;
+    setTimeout(()=>{document.body.style.background="linear-gradient(180deg,#071022 0%,#071827 100%)";},300);
+  }
 
   function startGame(){
     pairs = parsePairs(pairsTA.value);
@@ -163,6 +187,9 @@
 
   function recordAnswer(answer, correct, prompt, showSide, expectSide){
     const isCorrect = answer.toLowerCase() === correct.toLowerCase();
+    if(isCorrect) flashBackground("rgba(22,163,74,0.3)");
+    else flashBackground("rgba(239,68,68,0.3)");
+
     results.push({
       promptType: showSide,
       prompt: prompt,
@@ -171,7 +198,30 @@
       correct: isCorrect
     });
     currentIndex++;
-    setTimeout(nextQuestion, 300);
+    setTimeout(nextQuestion, 400);
+  }
+
+  function getLetterGrade(pct){
+    if(pct>=97) return "A+";
+    if(pct>=93) return "A";
+    if(pct>=90) return "A-";
+    if(pct>=87) return "B+";
+    if(pct>=83) return "B";
+    if(pct>=80) return "B-";
+    if(pct>=77) return "C+";
+    if(pct>=73) return "C";
+    if(pct>=70) return "C-";
+    if(pct>=67) return "D+";
+    if(pct>=63) return "D";
+    if(pct>=60) return "D-";
+    return "F";
+  }
+
+  function getGradeColor(letter){
+    if(["A+","A","A-","B+"].includes(letter)) return "limegreen";
+    if(["B","B-","C+"].includes(letter)) return "#3b82f6";
+    if(["C","C-","D+"].includes(letter)) return "#f97316";
+    return "#ef4444";
   }
 
   function endGame(){
@@ -179,19 +229,30 @@
     resultScreen.classList.remove('hidden');
     const correctCount = results.filter(r=>r.correct).length;
     const pct = Math.round((correctCount / results.length)*100);
+    const grade = getLetterGrade(pct);
+    const color = getGradeColor(grade);
+
     scoreText.textContent = `You got ${correctCount}/${results.length} correct (${pct}%)`;
     let html = `<table><tr><th>Prompt</th><th>Your Answer</th><th>Correct</th></tr>`;
     for(const r of results){
-      const color = r.correct ? "style='color:#16a34a'" : "style='color:#ef4444'";
-      html += `<tr><td>${r.prompt}</td><td ${color}>${r.answer}</td><td>${r.expected}</td></tr>`;
+      const colorA = r.correct ? "style='color:#16a34a'" : "style='color:#ef4444'";
+      html += `<tr><td>${r.prompt}</td><td ${colorA}>${r.answer}</td><td>${r.expected}</td></tr>`;
     }
     html += `</table>`;
     resultsTable.innerHTML = html;
+
+    gradeStamp.textContent = grade;
+    gradeStamp.style.color = color;
+    gradeStamp.classList.remove('hidden');
   }
 
   startBtn.onclick = startGame;
   clearBtn.onclick = ()=>{ pairsTA.value=''; localStorage.removeItem('vocabPairs'); };
-  menuBtn.onclick = ()=>{ resultScreen.classList.add('hidden'); menuScreen.classList.remove('hidden'); };
+  menuBtn.onclick = ()=>{
+    gradeStamp.classList.add('hidden');
+    resultScreen.classList.add('hidden');
+    menuScreen.classList.remove('hidden');
+  };
 
   window.addEventListener('load',()=>{
     const saved = localStorage.getItem('vocabPairs');
