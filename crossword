@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crossword</title>
+    <style>
+        :root {
+            --bg: #0f1724;
+            --card: #0b1220;
+            --accent: #06b6d4;
+            --muted: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.06);
+            --text-color: #e6eef6;
+            --correct-bg: rgba(74, 222, 128, 0.1);
+            --correct-border: #4ade80;
+            --incorrect-bg: rgba(248, 113, 113, 0.1);
+            --incorrect-border: #f87171;
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, "Helvetica Neue", Arial;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #071022 0%, #071827 100%);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        #root {
+            width: 100%;
+            max-width: 1400px;
+        }
+        
+        .wrap {
+             width: 100%;
+        }
+
+        header {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin: 0;
+        }
+
+        small {
+            color: var(--muted);
+        }
+
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 18px;
+        }
+        
+        .panel {
+            background: var(--card);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(2, 6, 23, .6);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: #071125;
+            color: inherit;
+            resize: vertical;
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        button {
+            background: var(--accent);
+            border: 0;
+            padding: 10px 14px;
+            border-radius: 10px;
+            color: #042027;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(6, 182, 212, 0.2);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 16px rgba(6, 182, 212, 0.45);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button:disabled {
+            background-color: #0e444e;
+            color: #557278;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        button.ghost {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--muted);
+            font-weight: 600;
+            box-shadow: none;
+        }
+
+        button.ghost:hover:not(:disabled) {
+            color: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 2px 12px rgba(6, 182, 212, 0.25);
+        }
+        
+        .error {
+            color: #f87171;
+            margin-top: 1rem;
+            display: none; /* Hidden by default */
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 1.2rem;
+            padding: 2rem;
+        }
+
+        .puzzle-view {
+             display: grid;
+             grid-template-columns: 1fr;
+             gap: 24px;
+        }
+        
+        @media (min-width: 900px) {
+            .layout-grid {
+                 grid-template-columns: 1fr 380px;
+            }
+            .puzzle-view {
+                grid-template-columns: auto 1fr;
+            }
+        }
+        
+        .crossword-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-x: auto;
+        }
+
+        .crossword-grid {
+            display: grid;
+            border: 2px solid var(--accent);
+            width: fit-content;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            background: var(--card);
+        }
+        
+        .grid-cell {
+            width: 38px;
+            height: 38px;
+            position: relative;
+        }
+        
+        .grid-cell.blank {
+           background-color: var(--card);
+        }
+        
+        .grid-cell input {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            border: 1px solid var(--border-color);
+            background-color: #071125;
+            text-align: center;
+            color: var(--text-color);
+            font-size: 1.4rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-radius: 0;
+            caret-color: var(--accent);
+        }
+        
+        .grid-cell input:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: -2px;
+            background-color: #0f1c3a;
+        }
+        
+        .grid-cell.active input {
+             background-color: rgba(6, 182, 212, 0.1);
+        }
+
+        .grid-cell .cell-number {
+            position: absolute;
+            top: 2px;
+            left: 3px;
+            font-size: 0.6rem;
+            font-weight: bold;
+            color: var(--muted);
+            pointer-events: none;
+        }
+
+        .grid-cell.correct input {
+            background-color: var(--correct-bg);
+            border-color: var(--correct-border);
+            color: var(--correct-border);
+        }
+        .grid-cell.incorrect input {
+            background-color: var(--incorrect-bg);
+            border-color: var(--incorrect-border);
+            color: var(--incorrect-border);
+        }
+
+        .clues-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (min-width: 500px) {
+            .clues-container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        @media (min-width: 900px) {
+             .clues-container {
+                display: flex;
+                flex-direction: column;
+             }
+        }
+
+
+        .clue-list h3 {
+            color: var(--accent);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+            font-size: 1rem;
+            letter-spacing: 0.1em;
+        }
+
+        .clue-list ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+        
+         @media (min-width: 900px) {
+            .clue-list ul {
+                max-height: calc(50vh - 125px);
+            }
+        }
+
+        .clue-list li {
+            padding: 0.5rem 0.4rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            line-height: 1.4;
+            font-size: 0.9rem;
+        }
+        
+        .clue-list li:hover {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+        
+        .clue-list li.active {
+            background-color: rgba(6, 182, 212, 0.15);
+            font-weight: bold;
+        }
+
+        .unplaced-words {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.5);
+            border-radius: 4px;
+        }
+
+        .unplaced-words h4 {
+            margin-top: 0;
+            color: #fbb024;
+        }
+        
+        .unplaced-words ul {
+            padding-left: 20px;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const root = document.getElementById('root');
+
+            // --- STATE MANAGEMENT ---
+            let appState = {
+                input: 'REACT\nA JavaScript library for building user interfaces\nCSS\nA style sheet language for describing the presentation of a document\nHTML\nThe standard markup language for documents designed to be displayed in a web browser\nJAVASCRIPT\nA programming language that is one of the core technologies of the World Wide Web',
+                puzzleData: null,
+                isLoading: false,
+                error: '',
+                activeItem: null,
+                userGrid: null,
+                checkState: null,
+                inputRefs: [],
+            };
+            
+            // --- CROSSWORD GENERATION LOGIC ---
+            class CrosswordGenerator {
+                constructor(words, gridSize = 50) {
+                    this.words = words
+                        .map(w => ({ ...w, word: w.word.toUpperCase().replace(/[^A-Z]/g, '') }))
+                        .filter(w => w.word.length > 0)
+                        .sort((a, b) => b.word.length - a.word.length);
+                    this.gridSize = gridSize;
+                    this.grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null));
+                    this.placedWords = [];
+                }
+
+                generate() {
+                    if (this.words.length === 0) {
+                        return { grid: [], numberMap: [], clues: { across: [], down: [] }, unplacedWords: [] };
+                    }
+                    this.placeWord(this.words[0], Math.floor(this.gridSize / 2), Math.floor(this.gridSize / 2) - Math.floor(this.words[0].word.length / 2), 'across');
+                    for (let i = 1; i < this.words.length; i++) {
+                        const wordToPlace = this.words[i];
+                        const bestPosition = this.findBestPosition(wordToPlace);
+                        if (bestPosition) {
+                            this.placeWord(wordToPlace, bestPosition.row, bestPosition.col, bestPosition.direction);
+                        }
+                    }
+                    const unplacedWords = this.words.filter(w => !this.placedWords.find(p => p.word === w.word));
+                    return this.finalize(unplacedWords);
+                }
+
+                findBestPosition(word) {
+                    let bestPos = null;
+                    let maxIntersections = -1;
+                    for (const placed of this.placedWords) {
+                        for (let i = 0; i < word.word.length; i++) {
+                            for (let j = 0; j < placed.word.length; j++) {
+                                if (word.word[i] === placed.word[j]) {
+                                    const direction = placed.direction === 'across' ? 'down' : 'across';
+                                    let row, col;
+                                    if (direction === 'down') {
+                                        row = placed.row - i;
+                                        col = placed.col + j;
+                                    } else {
+                                        row = placed.row + j;
+                                        col = placed.col - i;
+                                    }
+                                    const intersections = this.checkPlacement(word.word, row, col, direction);
+                                    if (intersections > maxIntersections) {
+                                        maxIntersections = intersections;
+                                        bestPos = { row, col, direction };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return bestPos;
+                }
+
+                checkPlacement(word, row, col, direction) {
+                    if (row < 0 || col < 0) return -1;
+                    let intersections = 0;
+                    for (let i = 0; i < word.length; i++) {
+                        const r = direction === 'across' ? row : row + i;
+                        const c = direction === 'across' ? col + i : col;
+                        if (r >= this.gridSize || c >= this.gridSize) return -1;
+                        const charInGrid = this.grid[r][c];
+                        const isStart = i === 0;
+                        const isEnd = i === word.length - 1;
+                        if (direction === 'across') {
+                            if (isStart && c > 0 && this.grid[r][c - 1]) return -1;
+                            if (isEnd && c < this.gridSize - 1 && this.grid[r][c + 1]) return -1;
+                            if (charInGrid && charInGrid !== word[i]) return -1;
+                            if (!charInGrid && ((r > 0 && this.grid[r - 1][c]) || (r < this.gridSize - 1 && this.grid[r + 1][c]))) return -1;
+                            if (charInGrid && charInGrid === word[i]) intersections++;
+                        } else {
+                            if (isStart && r > 0 && this.grid[r - 1][c]) return -1;
+                            if (isEnd && r < this.gridSize - 1 && this.grid[r + 1][c]) return -1;
+                            if (charInGrid && charInGrid !== word[i]) return -1;
+                            if (!charInGrid && ((c > 0 && this.grid[r][c - 1]) || (c < this.gridSize - 1 && this.grid[r][c + 1]))) return -1;
+                            if (charInGrid && charInGrid === word[i]) intersections++;
+                        }
+                    }
+                    return intersections === 0 && this.placedWords.length > 0 ? -1 : intersections;
+                }
+
+                placeWord(word, row, col, direction) {
+                    for (let i = 0; i < word.word.length; i++) {
+                        const r = direction === 'across' ? row : row + i;
+                        const c = direction === 'across' ? col + i : col;
+                        this.grid[r][c] = word.word[i];
+                    }
+                    this.placedWords.push({ ...word, row, col, direction });
+                }
+
+                finalize(unplacedWords) {
+                    let minRow = this.gridSize, maxRow = -1, minCol = this.gridSize, maxCol = -1;
+                    for (let r = 0; r < this.gridSize; r++) {
+                        for (let c = 0; c < this.gridSize; c++) {
+                            if (this.grid[r][c]) {
+                                if (r < minRow) minRow = r;
+                                if (r > maxRow) maxRow = r;
+                                if (c < minCol) minCol = c;
+                                if (c > maxCol) maxCol = c;
+                            }
+                        }
+                    }
+                    if (minRow > maxRow) {
+                        return { grid: [], numberMap: [], clues: { across: [], down: [] }, unplacedWords };
+                    }
+                    const trimmedGrid = this.grid.slice(minRow, maxRow + 1).map(row => row.slice(minCol, maxCol + 1));
+                    const numberMap = Array(trimmedGrid.length).fill(null).map(() => Array(trimmedGrid[0].length).fill(null));
+                    let numberCounter = 1;
+                    const clues = { across: [], down: [] };
+                    const sortedPlaced = [...this.placedWords].sort((a, b) => a.row - b.row || a.col - b.col);
+                    for (const word of sortedPlaced) {
+                        const r = word.row - minRow;
+                        const c = word.col - minCol;
+                        if (!numberMap[r][c]) {
+                            numberMap[r][c] = numberCounter++;
+                        }
+                        const clueNumber = numberMap[r][c];
+                        clues[word.direction].push({
+                            number: clueNumber,
+                            clue: word.clue,
+                            word: word.word,
+                            direction: word.direction,
+                            row: r,
+                            col: c
+                        });
+                    }
+                    clues.across.sort((a, b) => a.number - b.number);
+                    clues.down.sort((a, b) => a.number - b.number);
+                    return { grid: trimmedGrid, clues, unplacedWords, numberMap };
+                }
+            }
+            
+            // --- EVENT HANDLERS ---
+            function handleGenerate() {
+                appState.isLoading = true;
+                appState.error = '';
+                appState.puzzleData = null;
+                appState.activeItem = null;
+                appState.userGrid = null;
+                appState.checkState = null;
+                render();
+
+                setTimeout(() => {
+                    try {
+                        const lines = appState.input.trim().split('\n');
+                        if (lines.length > 0 && (lines.length < 2 || lines.length % 2 !== 0)) {
+                            throw new Error('Invalid input. Please provide an even number of lines for words and clues.');
+                        }
+                        const words = [];
+                        for (let i = 0; i < lines.length; i += 2) {
+                            const word = lines[i].trim();
+                            const clue = lines[i + 1].trim();
+                            if (word && clue) words.push({ word, clue });
+                        }
+                        if (words.length === 0) {
+                            throw new Error('No valid words and clues found. Please check your input.');
+                        }
+                        const generator = new CrosswordGenerator(words);
+                        const result = generator.generate();
+                        if (result.grid.length > 0) {
+                            appState.puzzleData = result;
+                            appState.userGrid = result.grid.map(row => row.map(() => null));
+                        } else {
+                            throw new Error("Could not generate a puzzle from the provided words. Try using more or different words.");
+                        }
+                    } catch (e) {
+                        appState.error = e.message;
+                    } finally {
+                        appState.isLoading = false;
+                        render();
+                    }
+                }, 50);
+            }
+
+            function handleReset() {
+                appState.input = '';
+                appState.puzzleData = null;
+                appState.error = '';
+                appState.activeItem = null;
+                appState.userGrid = null;
+                appState.checkState = null;
+                render();
+            }
+            
+            function handleClueClick(direction, number) {
+                appState.activeItem = { direction, number };
+                appState.checkState = null;
+                updateHighlights();
+                
+                const activeClue = appState.puzzleData.clues[direction].find(c => c.number === number);
+                if (activeClue) {
+                    appState.inputRefs[activeClue.row][activeClue.col].focus();
+                }
+            }
+
+            function handleGridChange(e, r, c) {
+                const value = e.target.value.toUpperCase().slice(-1);
+                appState.userGrid[r][c] = value === '' ? null : value;
+                if (appState.checkState) {
+                    appState.checkState = null;
+                    updateHighlights();
+                }
+            }
+            
+            function handleKeyDown(e, r, c) {
+                const { grid } = appState.puzzleData;
+                const { activeItem, inputRefs } = appState;
+                if (e.key === 'Backspace' && !appState.userGrid[r][c]) {
+                     if (activeItem?.direction === 'across' && c > 0 && grid[r][c-1]) {
+                        inputRefs[r][c-1].focus();
+                    } else if (activeItem?.direction === 'down' && r > 0 && grid[r-1][c]) {
+                        inputRefs[r-1][c].focus();
+                    }
+                } else if (e.key === 'ArrowUp' && r > 0 && grid[r-1][c]) {
+                    inputRefs[r-1][c].focus();
+                } else if (e.key === 'ArrowDown' && r + 1 < grid.length && grid[r+1][c]) {
+                    inputRefs[r+1][c].focus();
+                } else if (e.key === 'ArrowLeft' && c > 0 && grid[r][c-1]) {
+                    inputRefs[r][c-1].focus();
+                } else if (e.key === 'ArrowRight' && c + 1 < grid[0].length && grid[r][c+1]) {
+                    inputRefs[r][c+1].focus();
+                }
+            }
+            
+            function handleCheckPuzzle() {
+                const { puzzleData, userGrid } = appState;
+                if (!puzzleData || !userGrid) return;
+                appState.checkState = puzzleData.grid.map((row, r) =>
+                    row.map((cell, c) => {
+                        if (!cell) return null;
+                        if (!userGrid[r][c]) return null;
+                        return userGrid[r][c] === cell ? 'correct' : 'incorrect';
+                    })
+                );
+                updateHighlights();
+            }
+
+            function handleRevealPuzzle() {
+                if (!appState.puzzleData) return;
+                appState.userGrid = appState.puzzleData.grid.map(row => [...row]);
+                appState.checkState = null;
+                render(); // Full re-render to update all input values
+            }
+
+            function handleClearPuzzle() {
+                if(!appState.puzzleData) return;
+                appState.userGrid = appState.puzzleData.grid.map(row => row.map(() => null));
+                appState.checkState = null;
+                render(); // Full re-render
+            }
+            
+            function handleCreateNew() {
+                appState.puzzleData = null;
+                appState.activeItem = null;
+                appState.userGrid = null;
+                appState.checkState = null;
+                render();
+            }
+
+
+            // --- RENDER & UPDATE FUNCTIONS ---
+            
+            function getGeneratorViewHTML() {
+                return `
+                    <div class="wrap">
+                        <header>
+                            <h1>Crossword Generator</h1>
+                            <small>Enter pairs as <strong>WORD first, then CLUE below</strong>. Each pair should be two lines.</small>
+                        </header>
+                        <div class="layout-grid">
+                            <div class="panel">
+                                <label for="words-input">Words & Clues</label>
+                                <textarea id="words-input" placeholder="WORD1\nClue for Word 1\nWORD2\nClue for Word 2">${appState.input}</textarea>
+                                <p class="error" id="error-message" role="alert" style="display: ${appState.error ? 'block' : 'none'}">${appState.error}</p>
+                                <div class="controls">
+                                    <button id="generate-btn">Generate Puzzle</button>
+                                    <button id="clear-btn" class="ghost">Clear Input</button>
+                                </div>
+                            </div>
+                            <div class="panel">
+                                <h2>How it works</h2>
+                                <p style="color: var(--muted); line-height: 1.6; font-size: 0.9rem;">
+                                    This tool builds a crossword puzzle from the words you provide.
+                                    <br/><br/>
+                                    <strong>1. Input:</strong> Enter words on odd-numbered lines and their corresponding clues on the even-numbered lines below them.
+                                    <br/><br/>
+                                    <strong>2. Generate:</strong> The algorithm sorts your words by length and places the longest one first. It then tries to fit the remaining words by finding the best possible intersection points.
+                                    <br/><br/>
+                                    <strong>3. Solve:</strong> Once generated, you can click on clues or cells to highlight a word and type in your answers. Use the controls to check your progress or reveal the solution.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function getPuzzleViewHTML() {
+                const { puzzleData } = appState;
+                const unplacedHTML = puzzleData.unplacedWords.length > 0 ? `
+                    <div class="unplaced-words panel">
+                        <h4>Words that couldn't be placed:</h4>
+                        <ul>${puzzleData.unplacedWords.map(w => `<li>${w.word}</li>`).join('')}</ul>
+                    </div>
+                ` : '';
+
+                return `
+                     <div class="wrap">
+                        <header>
+                          <h1>Crossword Puzzle</h1>
+                        </header>
+                        <div class="puzzle-view panel">
+                            <div class="crossword-container" id="grid-container"></div>
+                            <div class="clues-container">
+                                <div class="clue-list" id="across-clues"></div>
+                                <div class="clue-list" id="down-clues"></div>
+                            </div>
+                        </div>
+                        ${unplacedHTML}
+                        <div class="controls panel" style="margin-top: 18px;">
+                            <button id="check-btn">Check Puzzle</button>
+                            <button id="reveal-btn" class="ghost">Reveal All</button>
+                            <button id="clear-answers-btn" class="ghost">Clear Answers</button>
+                            <div style="flex: 1"></div>
+                            <button id="new-puzzle-btn">Create New Puzzle</button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            function renderGrid() {
+                 const { grid, numberMap } = appState.puzzleData;
+                 const container = document.getElementById('grid-container');
+                 if (!container) return;
+
+                 const gridEl = document.createElement('div');
+                 gridEl.className = 'crossword-grid';
+                 gridEl.style.gridTemplateColumns = `repeat(${grid[0].length}, 1fr)`;
+                 
+                 appState.inputRefs = [];
+
+                 grid.forEach((row, r) => {
+                    appState.inputRefs[r] = [];
+                    row.forEach((cell, c) => {
+                        if (!cell) {
+                            const blankCell = document.createElement('div');
+                            blankCell.className = 'grid-cell blank';
+                            blankCell.setAttribute('aria-hidden', 'true');
+                            gridEl.appendChild(blankCell);
+                            return;
+                        }
+                        
+                        const cellWrapper = document.createElement('div');
+                        cellWrapper.className = 'grid-cell';
+                        cellWrapper.dataset.row = r;
+                        cellWrapper.dataset.col = c;
+                        
+                        const number = numberMap[r][c];
+                        if (number) {
+                            const numEl = document.createElement('span');
+                            numEl.className = 'cell-number';
+                            numEl.textContent = number;
+                            cellWrapper.appendChild(numEl);
+                        }
+
+                        const inputEl = document.createElement('input');
+                        inputEl.type = 'text';
+                        inputEl.maxLength = 1;
+                        inputEl.value = appState.userGrid[r][c] || '';
+                        inputEl.setAttribute('aria-label', `Cell ${r+1}, ${c+1}`);
+                        inputEl.addEventListener('input', (e) => handleGridChange(e, r, c));
+                        inputEl.addEventListener('keydown', (e) => handleKeyDown(e, r, c));
+
+                        cellWrapper.appendChild(inputEl);
+                        gridEl.appendChild(cellWrapper);
+                        appState.inputRefs[r][c] = inputEl;
+                    });
+                 });
+                 
+                 container.innerHTML = '';
+                 container.appendChild(gridEl);
+            }
+
+            function renderClues() {
+                const { clues } = appState.puzzleData;
+                
+                const acrossContainer = document.getElementById('across-clues');
+                if (acrossContainer) {
+                    const ul = document.createElement('ul');
+                    clues.across.forEach(({number, clue}) => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<strong>${number}.</strong> ${clue}`;
+                        li.dataset.direction = 'across';
+                        li.dataset.number = number;
+                        li.addEventListener('click', () => handleClueClick('across', number));
+                        ul.appendChild(li);
+                    });
+                    acrossContainer.innerHTML = '<h3>ACROSS</h3>';
+                    acrossContainer.appendChild(ul);
+                }
+                
+                const downContainer = document.getElementById('down-clues');
+                if (downContainer) {
+                     const ul = document.createElement('ul');
+                    clues.down.forEach(({number, clue}) => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<strong>${number}.</strong> ${clue}`;
+                        li.dataset.direction = 'down';
+                        li.dataset.number = number;
+                        li.addEventListener('click', () => handleClueClick('down', number));
+                        ul.appendChild(li);
+                    });
+                    downContainer.innerHTML = '<h3>DOWN</h3>';
+                    downContainer.appendChild(ul);
+                }
+            }
+
+            function updateHighlights() {
+                const { activeItem, checkState, puzzleData } = appState;
+
+                // Update clues
+                document.querySelectorAll('.clue-list li').forEach(li => {
+                    const isActive = activeItem && li.dataset.direction === activeItem.direction && Number(li.dataset.number) === activeItem.number;
+                    li.classList.toggle('active', isActive);
+                });
+
+                // Update grid cells
+                document.querySelectorAll('.grid-cell').forEach(cell => {
+                    if (cell.classList.contains('blank')) return;
+                    
+                    const r = parseInt(cell.dataset.row);
+                    const c = parseInt(cell.dataset.col);
+                    
+                    let isActive = false;
+                    if (activeItem) {
+                        const activeClue = puzzleData.clues[activeItem.direction].find(clue => clue.number === activeItem.number);
+                        if (activeClue) {
+                            if (activeItem.direction === 'across') {
+                                isActive = r === activeClue.row && c >= activeClue.col && c < activeClue.col + activeClue.word.length;
+                            } else {
+                                isActive = c === activeClue.col && r >= activeClue.row && r < activeClue.row + activeClue.word.length;
+                            }
+                        }
+                    }
+                    cell.classList.toggle('active', isActive);
+
+                    const check = checkState ? checkState[r][c] : null;
+                    cell.classList.toggle('correct', check === 'correct');
+                    cell.classList.toggle('incorrect', check === 'incorrect');
+                });
+            }
+
+            function render() {
+                if (appState.isLoading) {
+                    root.innerHTML = `<div class="wrap"><div class="loading">Generating your puzzle...</div></div>`;
+                    return;
+                }
+
+                if (appState.puzzleData) {
+                    root.innerHTML = getPuzzleViewHTML();
+                    renderGrid();
+                    renderClues();
+                    updateHighlights();
+                    attachPuzzleViewListeners();
+                } else {
+                    root.innerHTML = getGeneratorViewHTML();
+                    attachGeneratorViewListeners();
+                }
+            }
+            
+            function attachGeneratorViewListeners() {
+                const generateBtn = document.getElementById('generate-btn');
+                const clearBtn = document.getElementById('clear-btn');
+                const wordsInput = document.getElementById('words-input');
+
+                generateBtn.addEventListener('click', handleGenerate);
+                clearBtn.addEventListener('click', handleReset);
+                wordsInput.addEventListener('input', (e) => {
+                    appState.input = e.target.value;
+                    generateBtn.disabled = !appState.input.trim();
+                });
+                generateBtn.disabled = !appState.input.trim();
+            }
+
+            function attachPuzzleViewListeners() {
+                document.getElementById('check-btn').addEventListener('click', handleCheckPuzzle);
+                document.getElementById('reveal-btn').addEventListener('click', handleRevealPuzzle);
+                document.getElementById('clear-answers-btn').addEventListener('click', handleClearPuzzle);
+                document.getElementById('new-puzzle-btn').addEventListener('click', handleCreateNew);
+            }
+
+            // --- INITIAL RENDER ---
+            render();
+        });
+    </script>
+</body>
+</html>
