@@ -1,224 +1,161 @@
 <!DOCTYPE html>
-<html lang="en"><head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Flashcard Study</title>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flashcard Game</title>
   <style>
     :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
-    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
-    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071022 0%,#071827 100%);color:#e6eef6;display:flex;align-items:center;justify-content:center;padding:24px}
-    .wrap{width:100%;max-width:980px}
-    header{display:flex;gap:12px;align-items:center;margin-bottom:18px}
-    h1{font-size:20px;margin:0}
-    .grid{display:grid;grid-template-columns:1fr 380px;gap:18px}
-    .panel{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
-    textarea{width:100%;height:220px;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:#071125;color:inherit;resize:vertical}
-    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
-    .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-    select,input[type="checkbox"]{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-    button{background:var(--accent);border:0;padding:10px 12px;border-radius:10px;color:#042027;font-weight:600;cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 6px rgba(6,182,212,0.2)}
-    button:hover{transform:scale(1.08);box-shadow:0 4px 16px rgba(6,182,212,0.45)}
-    button:active{transform:scale(0.96)}
-    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600;box-shadow:none}
-    button.ghost:hover{color:var(--accent);border-color:var(--accent);box-shadow:0 2px 12px rgba(6,182,212,0.25)}
-    .cardView{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:28px;min-height:280px}
-    .prompt{font-size:48px;font-weight:700}
-    .sub{font-size:14px;color:var(--muted)}
-    .answer{font-size:28px;color:var(--accent);min-height:34px}
-    .progress{width:100%;height:12px;background:rgba(255,255,255,0.04);border-radius:999px;overflow:hidden}
-    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%}
-    .footer{display:flex;gap:8px;align-items:center;margin-top:12px}
-    input[type=text]{padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;width:220px}
-    .meta{font-size:13px;color:var(--muted)}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Arial}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#071022,#071827);color:#e6eef6;display:flex;align-items:center;justify-content:center;padding:24px}
+    .wrap{width:100%;max-width:900px}
+    .panel{background:var(--card);padding:20px;border-radius:14px;box-shadow:0 6px 18px rgba(2,6,23,.6)}
+    h1{margin:0 0 6px;font-size:22px}
     small{color:var(--muted)}
-    @media (max-width:900px){.grid{grid-template-columns:1fr;}.cardView{min-height:220px}}
+    textarea{width:100%;height:220px;margin-top:10px;padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,.06);background:#071125;color:inherit}
+    button{background:var(--accent);border:0;padding:12px 16px;border-radius:12px;color:#042027;font-weight:700;cursor:pointer;transition:.2s}
+    button:hover{transform:scale(1.07)}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--muted)}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;justify-content:center}
+
+    /* title screen */
+    #setup{display:block}
+    #game{display:none}
+
+    select{padding:10px;border-radius:10px;background:transparent;color:inherit;border:1px solid rgba(255,255,255,.08)}
+
+    /* card */
+    .cardWrap{display:flex;flex-direction:column;align-items:center;gap:18px}
+    .card{width:100%;max-width:520px;height:260px;perspective:1200px;cursor:pointer}
+    .inner{width:100%;height:100%;position:relative;transition:transform .6s;transform-style:preserve-3d}
+    .inner.flipped{transform:rotateY(180deg)}
+    .face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;border-radius:18px;font-size:36px;font-weight:800;backface-visibility:hidden;background:#020617}
+    .back{transform:rotateY(180deg);color:var(--accent)}
+
+    .nav{display:flex;gap:20px;margin-top:8px}
+    .hint{font-size:13px;color:var(--muted)}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>Flashcard Study</h1>
-      <small class="meta">Insert pairs as <strong>The front of the card first, and then the back below</strong>. Each pair should be two lines.</small>
-    </header>
-    <div class="grid">
-      <div class="panel">
-        <label for="pairs">Card list (Front line, then Back line)</label>
-        <textarea id="pairs" style="height: 15px;"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-          <div style="flex:1">
-            <label for="mode">Mode</label>
-            <select id="mode">
-              <option value="front-to-back">Show Front → guess Back</option>
-              <option value="back-to-front">Show Back → guess Front</option>
-              <option value="both">Both directions (random per card)</option>
-            </select>
-          </div>
-          <div>
-            <label for="random">Randomize order</label><br>
-            <input type="checkbox" id="random" checked="">
-          </div>
-        </div>
-        <div class="controls">
-          <button id="load">Load list</button>
-          <button id="shuffle" class="ghost">Shuffle</button>
-          <button id="start" class="ghost">Start</button>
-          <button id="reset" class="ghost">Reset</button>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="cardView">
-          <div class="sub">Progress: <span id="progressText">0 / 0</span></div>
-          <div class="progress" aria-hidden=""><i id="progressBar" style="width: 0%;"></i></div>
-          <div class="prompt" id="prompt">—</div>
-          <div class="answer" id="answer">&nbsp;</div>
-          <div class="sub" id="directionHint">Load a list to begin.</div>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">
-            <input type="text" id="response" placeholder="Type your answer (optional)">
-            <button id="check">Check</button>
-            <button id="show" class="ghost">Show answer</button>
-            <button id="next" class="ghost">Next</button>
-            <button id="mark" class="ghost">✔️ Mark</button>
-            <button id="reviewMissed" class="ghost" style="display:none;">Review missed flashcards</button>
-            <button id="reviewMarked" class="ghost" style="display:none;">Review selected flashcards</button>
-          </div>
-          <div class="footer">
-            <div class="meta">Shown: <span id="shownCount">0</span></div>
-            <div style="flex:1"></div>
-            <small class="meta">Tip: press Enter to submit answer.</small>
-          </div>
-        </div>
-      </div>
+<div class="wrap">
+
+  <!-- SETUP / TITLE SCREEN -->
+  <div id="setup" class="panel">
+    <h1>Flashcard Study</h1>
+    <small>Paste vocab below (odd lines = term, even lines = definition)</small>
+    <textarea id="vocab"></textarea>
+
+    <div class="controls">
+      <select id="startSide">
+        <option value="term">Start on term</option>
+        <option value="def">Start on definition</option>
+      </select>
+      <button id="start">Start</button>
     </div>
   </div>
-  <audio id="clickSound" src="https://actions.google.com/sounds/v1/tools/18v_cordless_drill_switch.ogg" preload="auto"></audio>
-  <script>
-    const clickSound = document.getElementById('clickSound');
-    document.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        clickSound.currentTime = 0;
-        clickSound.play();
-      });
-    });
 
-    const pairsTA = document.getElementById('pairs');
-    const modeSel = document.getElementById('mode');
-    const randomChk = document.getElementById('random');
-    const promptEl = document.getElementById('prompt');
-    const answerEl = document.getElementById('answer');
-    const directionHint = document.getElementById('directionHint');
-    const progressText = document.getElementById('progressText');
-    const progressBar = document.getElementById('progressBar');
-    const shownCountEl = document.getElementById('shownCount');
-    const responseInput = document.getElementById('response');
-    const checkBtn = document.getElementById('check');
-    const showBtn = document.getElementById('show');
-    const nextBtn = document.getElementById('next');
-    const reviewBtn = document.getElementById('reviewMissed');
-    const reviewMarkedBtn = document.getElementById('reviewMarked');
-    const markBtn = document.getElementById('mark');
+  <!-- GAME SCREEN -->
+  <div id="game" class="panel">
+    <div class="cardWrap">
+      <div class="card" id="card">
+        <div class="inner" id="inner">
+          <div class="face front" id="front">—</div>
+          <div class="face back" id="back">—</div>
+        </div>
+      </div>
 
-    let cards = [];
-    let order = [];
-    let currentIndex = -1;
-    let shown = 0;
-    let directionForCard = {};
-    let missed = [];
-    let marked = [];
+      <div class="nav">
+        <button id="prev" class="ghost">&lt;</button>
+        <button id="next" class="ghost">&gt;</button>
+      </div>
 
-    function parsePairs(text){
-      const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
-      const out = [];
-      for(let i=0;i<lines.length;i+=2){
-        if(lines[i+1]) out.push({front:lines[i], back:lines[i+1]});
-      }
-      return out;
-    }
+      <div class="hint">Click card or press Space to flip · &lt; / &gt; to navigate</div>
+    </div>
+  </div>
+</div>
 
-    function updateProgress(){
-      const total = order.length;
-      progressText.textContent = `${Math.max(0,shown)} / ${total}`;
-      const pct = total===0?0:Math.round((shown/total)*100);
-      progressBar.style.width = pct+"%";
-      shownCountEl.textContent = shown;
-    }
+<audio id="click" preload="auto" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
 
-    function getDirection(idx){
-      if(modeSel.value==='both'){
-        if(!directionForCard[idx]) directionForCard[idx]=(Math.random()<0.5?'f2b':'b2f');
-        return directionForCard[idx];
-      }
-      return modeSel.value==='back-to-front'?'b2f':'f2b';
-    }
+<script>
+const vocabTA = document.getElementById('vocab');
+const setup = document.getElementById('setup');
+const game = document.getElementById('game');
+const startBtn = document.getElementById('start');
+const startSideSel = document.getElementById('startSide');
 
-    function renderCard(){
-      if(order.length===0){promptEl.textContent='—';answerEl.innerHTML='&nbsp;';directionHint.textContent='Load a list to begin.';return;}
-      if(currentIndex<0||currentIndex>=order.length){
-        promptEl.textContent='Done';directionHint.textContent='You reached the end.';
-        if(missed.length>0) reviewBtn.style.display='inline-block';
-        if(marked.length>0) reviewMarkedBtn.style.display='inline-block';
-        return;
-      }
-      const idx=order[currentIndex];
-      const card=cards[idx];
-      const dir=getDirection(idx);
-      promptEl.textContent=dir==='f2b'?card.front:card.back;
-      directionHint.textContent=dir==='f2b'?'Show front → guess back':'Show back → guess front';
-      answerEl.innerHTML='&nbsp;';responseInput.value='';
-    }
+const card = document.getElementById('card');
+const inner = document.getElementById('inner');
+const front = document.getElementById('front');
+const back = document.getElementById('back');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+const click = document.getElementById('click');
 
-    function nextCard(){
-      if(order.length===0)return;
-      currentIndex++;
-      if(currentIndex>=order.length){
-        promptEl.textContent='Finished — well done!';directionHint.textContent='Reset or reshuffle to review again.';
-        if(missed.length>0) reviewBtn.style.display='inline-block';
-        if(marked.length>0) reviewMarkedBtn.style.display='inline-block';
-        return;
-      }
-      shown=currentIndex;updateProgress();renderCard();
-    }
+let cards = [];
+let order = [];
+let index = 0;
+let flipped = false;
+let startSide = 'term';
 
-    function showAnswer(){
-      if(currentIndex<0||currentIndex>=order.length)return;
-      const idx=order[currentIndex];
-      const card=cards[idx];
-      const dir=getDirection(idx);
-      answerEl.textContent=dir==='f2b'?card.back:card.front;
-    }
+function sound(){click.currentTime=0;click.play();}
 
-    function checkAnswer(){
-      const text=responseInput.value.trim();
-      if(text==='')return showAnswer();
-      if(currentIndex<0||currentIndex>=order.length)return;
-      const idx=order[currentIndex];
-      const card=cards[idx];
-      const dir=getDirection(idx);
-      const correct=(dir==='f2b'?card.back:card.front).toLowerCase();
-      if(text.toLowerCase()===correct){
-        answerEl.textContent='Correct ✓';setTimeout(()=>{nextCard();},600);
-      } else {
-        answerEl.textContent=`No — answer: ${dir==='f2b'?card.back:card.front}`;
-        if(!missed.includes(idx)) missed.push(idx);
-      }
-    }
+function parse(text){
+  const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  const out=[];
+  for(let i=0;i<lines.length;i+=2){
+    if(lines[i+1]) out.push({term:lines[i],def:lines[i+1]});
+  }
+  return out;
+}
 
-    function shuffleArray(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+function save(){localStorage.setItem('flashcards',vocabTA.value)}
+function load(){const s=localStorage.getItem('flashcards');if(s)vocabTA.value=s}
+load();
 
-    function savePairs(){localStorage.setItem('elementPairs',pairsTA.value);}
-    function loadPairs(){const saved=localStorage.getItem('elementPairs');if(saved)pairsTA.value=saved;}
-    loadPairs();
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
 
-    document.getElementById('load').addEventListener('click',()=>{savePairs();cards=parsePairs(pairsTA.value);order=cards.map((_,i)=>i);if(randomChk.checked)shuffleArray(order);currentIndex=-1;shown=0;directionForCard={};missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';updateProgress();renderCard();});
-    document.getElementById('start').addEventListener('click',()=>{currentIndex=-1;shown=0;if(randomChk.checked)shuffleArray(order);missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';nextCard();});
-    document.getElementById('shuffle').addEventListener('click',()=>{shuffleArray(order);currentIndex=-1;shown=0;missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';updateProgress();renderCard();});
-    document.getElementById('reset').addEventListener('click',()=>{cards=[];order=[];currentIndex=-1;shown=0;directionForCard={};pairsTA.value='';missed=[];marked=[];reviewBtn.style.display='none';reviewMarkedBtn.style.display='none';savePairs();updateProgress();renderCard();});
-    showBtn.addEventListener('click',showAnswer);
-    nextBtn.addEventListener('click',nextCard);
-    checkBtn.addEventListener('click',checkAnswer);
-    markBtn.addEventListener('click',()=>{if(currentIndex>=0&&currentIndex<order.length){const idx=order[currentIndex];if(!marked.includes(idx))marked.push(idx);}});
-    responseInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();checkAnswer();}});
-    pairsTA.addEventListener('input',savePairs);
-    reviewBtn.addEventListener('click',()=>{if(missed.length===0)return;order=[...missed];missed=[];currentIndex=-1;shown=0;reviewBtn.style.display='none';updateProgress();renderCard();});
-    reviewMarkedBtn.addEventListener('click',()=>{if(marked.length===0)return;order=[...marked];marked=[];currentIndex=-1;shown=0;reviewMarkedBtn.style.display='none';updateProgress();renderCard();});
-  </script>
-</body></html>
+function render(){
+  const c = cards[order[index]];
+  if(startSide==='term'){
+    front.textContent=c.term;
+    back.textContent=c.def;
+  } else {
+    front.textContent=c.def;
+    back.textContent=c.term;
+  }
+  inner.classList.remove('flipped');
+  flipped=false;
+}
+
+function flip(){inner.classList.toggle('flipped');flipped=!flipped;sound();}
+
+function next(){if(index<order.length-1){index++;render();sound();}}
+function prev(){if(index>0){index--;render();sound();}}
+
+startBtn.onclick=()=>{
+  save();
+  cards=parse(vocabTA.value);
+  if(cards.length===0)return;
+  order=cards.map((_,i)=>i);
+  shuffle(order);
+  index=0;
+  startSide=startSideSel.value;
+  setup.style.display='none';
+  game.style.display='block';
+  render();
+  sound();
+}
+
+card.onclick=flip;
+nextBtn.onclick=next;
+prevBtn.onclick=prev;
+
+window.addEventListener('keydown',e=>{
+  if(game.style.display!=='block')return;
+  if(e.code==='Space'){e.preventDefault();flip();}
+  if(e.key==='>'||e.key==='ArrowRight')next();
+  if(e.key==='<'||e.key==='ArrowLeft')prev();
+});
+</script>
+</body>
+</html>
