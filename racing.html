@@ -89,45 +89,34 @@ button:hover{transform:scale(1.05)}
 <div class="wrap">
 
 <div id="startScreen" class="panel">
-<h1>Vocab Racing Game</h1>
-<p class="info">Odd line = word, even line = definition</p>
-<textarea id="pairs"></textarea>
-<div style="margin-top:12px">
-<label class="info">Mode</label><br>
-<select id="mode" style="margin-top:6px;padding:8px;border-radius:8px;background:#071125;color:#e6eef6;border:1px solid rgba(255,255,255,.06)">
-<option value="wd">Show word → guess definition</option>
-<option value="dw">Show definition → guess word</option>
-<option value="random">Random</option>
-</select>
-</div>
-<div style="margin-top:12px;display:flex;gap:8px">
-<button id="play">Play</button>
-<button id="clear">Clear</button>
-</div>
-</div>
-
-<div id="gameScreen" class="panel hidden">
-<h1>Pick the Correct Answer</h1>
-<div id="definition" class="definition"></div>
-<div id="choices" class="choices"></div>
-<div class="track"><div id="progress" class="bar"></div></div>
-<div class="info">Finish the race by getting answers right</div>
-<div style="margin-top:12px">
-<button id="stop">Stop</button>
-</div>
-</div>
-
+  <h1>Vocab Racing Game</h1>
+  <p class="info">Odd line = word, even line = definition</p>
+  <textarea id="pairs"></textarea>
+  <div style="margin-top:12px">
+    <label class="info">Mode</label><br>
+    <select id="mode" style="margin-top:6px;padding:8px;border-radius:8px;background:#071125;color:#e6eef6;border:1px solid rgba(255,255,255,.06)">
+      <option value="wd">Show word → guess definition</option>
+      <option value="dw">Show definition → guess word</option>
+      <option value="random">Random</option>
+    </select>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px">
+    <button id="play">Play</button>
+    <button id="clear">Clear</button>
+  </div>
 </div>
 
 <div id="gameScreen" class="panel hidden">
-<h1>Pick the Correct Answer</h1>
-<div id="definition" class="definition"></div>
-<div id="choices" class="choices"></div>
-<div class="track"><div id="progress" class="bar"></div></div>
-<div class="info">Finish the race by getting answers right</div>
-<div style="margin-top:12px">
-<button id="stop">Stop</button>
+  <h1>Pick the Correct Answer</h1>
+  <div id="definition" class="definition"></div>
+  <div id="choices" class="choices"></div>
+  <div class="track"><div id="progress" class="bar"></div></div>
+  <div class="info">Wrong answers push you back and return later</div>
+  <div style="margin-top:12px">
+    <button id="stop">Stop</button>
+  </div>
 </div>
+
 </div>
 
 <script>
@@ -144,10 +133,11 @@ const modeSel = document.getElementById('mode');
 
 let pairs = [];
 let unused = [];
+let retryQueue = [];
 let progress = 0;
 const FINISH = 100;
+const STEP = 10;
 
-// FIXED: valid regular expression for splitting lines
 function parsePairs(text){
   const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
   const out=[];
@@ -165,12 +155,16 @@ function shuffle(a){
 }
 
 function nextQuestion(){
-  if(unused.length===0) unused = [...pairs];
-  shuffle(unused);
+  if(unused.length === 0){
+    unused = [...retryQueue, ...pairs];
+    retryQueue = [];
+  }
 
+  shuffle(unused);
   const correct = unused.pop();
+
   const mode = modeSel.value === 'random'
-    ? (Math.random()<0.5 ? 'wd':'dw')
+    ? (Math.random() < 0.5 ? 'wd' : 'dw')
     : modeSel.value;
 
   let prompt, answers, correctAnswer;
@@ -181,7 +175,7 @@ function nextQuestion(){
     answers = [correct.word];
     const pool = pairs.filter(p=>p!==correct);
     shuffle(pool);
-    while(answers.length<4 && pool.length){
+    while(answers.length < 4 && pool.length){
       answers.push(pool.pop().word);
     }
   }else{
@@ -190,75 +184,81 @@ function nextQuestion(){
     answers = [correct.def];
     const pool = pairs.filter(p=>p!==correct);
     shuffle(pool);
-    while(answers.length<4 && pool.length){
+    while(answers.length < 4 && pool.length){
       answers.push(pool.pop().def);
     }
   }
 
   shuffle(answers);
   defEl.textContent = prompt;
-  choicesEl.innerHTML='';
+  choicesEl.innerHTML = '';
 
   answers.forEach(a=>{
-    const d=document.createElement('div');
-    d.className='choice';
-    d.textContent=a;
-    d.onclick=()=>pick(a===correctAnswer);
+    const d = document.createElement('div');
+    d.className = 'choice';
+    d.textContent = a;
+    d.onclick = ()=>pick(a === correctAnswer, correct);
     choicesEl.appendChild(d);
   });
 }
 
-function pick(ok){
+function pick(ok, pair){
   if(ok){
-    progress = Math.min(FINISH, progress + 10);
+    progress = Math.min(FINISH, progress + STEP);
     bar.style.width = progress + '%';
     bar.classList.remove('bad');
-    if(progress>=FINISH){
-      defEl.textContent='You finished the race!';
-      choicesEl.innerHTML='';
+
+    if(progress >= FINISH){
+      defEl.textContent = 'You finished the race!';
+      choicesEl.innerHTML = '';
       return;
     }
     nextQuestion();
   }else{
+    progress = Math.max(0, progress - STEP);
+    bar.style.width = progress + '%';
     bar.classList.add('bad');
+    retryQueue.push(pair);
     setTimeout(()=>bar.classList.remove('bad'),300);
+    nextQuestion();
   }
 }
 
-playBtn.onclick=()=>{
+playBtn.onclick = ()=>{
   pairs = parsePairs(pairsTA.value);
-  if(pairs.length<4){alert('Need at least 4 pairs');return;}
-  localStorage.setItem('racingPairs',pairsTA.value);
-  localStorage.setItem('racingMode',modeSel.value);
-  unused=[...pairs];
-  progress=0;
-  bar.style.width='0%';
+  if(pairs.length < 4){ alert('Need at least 4 pairs'); return; }
+  localStorage.setItem('racingPairs', pairsTA.value);
+  localStorage.setItem('racingMode', modeSel.value);
+  unused = [...pairs];
+  retryQueue = [];
+  progress = 0;
+  bar.style.width = '0%';
   nextQuestion();
   startScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
 };
 
-clearBtn.onclick=()=>{
-  pairsTA.value='';
+clearBtn.onclick = ()=>{
+  pairsTA.value = '';
   localStorage.removeItem('racingPairs');
 };
 
-stopBtn.onclick=()=>{
+stopBtn.onclick = ()=>{
   gameScreen.classList.add('hidden');
   startScreen.classList.remove('hidden');
 };
 
-window.onload=()=>{
-  const saved=localStorage.getItem('racingPairs');
-  if(saved)pairsTA.value=saved;
-  const m=localStorage.getItem('racingMode');
-  if(m) modeSel.value=m;
+window.onload = ()=>{
+  const saved = localStorage.getItem('racingPairs');
+  if(saved) pairsTA.value = saved;
+  const m = localStorage.getItem('racingMode');
+  if(m) modeSel.value = m;
 };
 
 // BASIC TESTS
-console.assert(parsePairs('a\nb').length===1,'Single pair parsed');
-console.assert(parsePairs('a\nb\nc').length===1,'Odd line ignored');
-console.assert(parsePairs('a\nb\nc\nd').length===2,'Two pairs parsed');
+console.assert(parsePairs('a\nb').length === 1, 'Single pair parsed');
+console.assert(parsePairs('a\nb\nc').length === 1, 'Odd line ignored');
+console.assert(parsePairs('a\nb\nc\nd').length === 2, 'Two pairs parsed');
 </script>
 </body>
 </html>
