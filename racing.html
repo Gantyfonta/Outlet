@@ -135,6 +135,8 @@ let pairs = [];
 let unused = [];
 let answeredCorrectly = new Set();
 let retryQueue = [];
+let totalCount = 0;
+let completedCount = 0;
 let progress = 0;
 const FINISH = 100;
 const STEP = 10;
@@ -153,6 +155,11 @@ function shuffle(a){
     const j=Math.floor(Math.random()*(i+1));
     [a[i],a[j]]=[a[j],a[i]];
   }
+}
+
+function updateBar(){
+  progress = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+  bar.style.width = progress + '%';
 }
 
 function nextQuestion(){
@@ -213,13 +220,19 @@ function nextQuestion(){
 
 function pick(ok, pair){
   if(ok){
-    answeredCorrectly.add(pair);
+    if(!answeredCorrectly.has(pair)){
+      answeredCorrectly.add(pair);
+      completedCount++;
+    }
     progress = Math.min(FINISH, progress + STEP);
     bar.style.width = progress + '%';
     bar.classList.remove('bad');
     nextQuestion();
   }else{
-    progress = Math.max(0, progress - STEP);
+    if(answeredCorrectly.has(pair)){
+      answeredCorrectly.delete(pair);
+      completedCount = Math.max(0, completedCount - 1);
+    }
     bar.style.width = progress + '%';
     bar.classList.add('bad');
     retryQueue.push(pair); // guaranteed to return later
@@ -234,6 +247,12 @@ playBtn.onclick = ()=>{
   localStorage.setItem('racingPairs', pairsTA.value);
   localStorage.setItem('racingMode', modeSel.value);
   unused = [...pairs];
+  shuffle(unused);
+  retryQueue = [];
+  answeredCorrectly.clear();
+  totalCount = pairs.length;
+  completedCount = 0;
+  updateBar();
   shuffle(unused);
   answeredCorrectly.clear();
   retryQueue = [];
