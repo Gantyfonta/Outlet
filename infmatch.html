@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vocab Matching Game</title>
+
+<style>
+:root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
+*{box-sizing:border-box;font-family:Inter,system-ui}
+body{
+  margin:0;min-height:100vh;
+  background:linear-gradient(180deg,#071022,#071827);
+  color:#e6eef6;
+  display:flex;justify-content:center;align-items:center;
+  padding:24px
+}
+.wrap{max-width:960px;width:100%}
+.panel{
+  background:var(--card);
+  padding:16px;
+  border-radius:12px;
+  box-shadow:0 6px 18px rgba(2,6,23,.6)
+}
+textarea{
+  width:100%;height:200px;
+  background:#071125;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;
+  color:inherit;
+  padding:12px
+}
+button{
+  background:var(--accent);
+  border:0;
+  padding:10px 14px;
+  border-radius:10px;
+  font-weight:600;
+  cursor:pointer;
+  transition:.2s
+}
+button:hover{transform:scale(1.05)}
+.hidden{display:none}
+
+.gameGrid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  margin-top:18px
+}
+
+.card{
+  background:#071125;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:10px;
+  padding:20px;
+  text-align:center;
+  cursor:pointer;
+  opacity:1;
+  transition:opacity .4s ease, transform .25s ease
+}
+.card:hover{border-color:var(--accent)}
+.card.revealed{
+  background:var(--accent);
+  color:#042027;
+  font-weight:700
+}
+.card.fade-out{
+  opacity:0;
+  pointer-events:none
+}
+.card.fade-in{
+  opacity:0;
+  animation:fadeIn .4s forwards
+}
+@keyframes fadeIn{to{opacity:1}}
+.info{margin-top:12px;color:var(--muted)}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+<div id="startScreen" class="panel">
+<h1>Vocab Matching Game</h1>
+<p class="info">Odd line = word, even line = definition</p>
+<textarea id="pairs"></textarea>
+<div style="margin-top:12px;display:flex;gap:8px">
+<button id="play">Play</button>
+<button id="clear">Clear</button>
+</div>
+</div>
+
+<div id="gameScreen" class="panel hidden">
+<h1>Find the Matches</h1>
+<div id="grid" class="gameGrid"></div>
+<div class="info"><span id="matches">0</span> matches completed</div>
+<div style="margin-top:12px">
+<button id="stop">Stop</button>
+</div>
+</div>
+
+<audio id="clickSound"
+src="https://actions.google.com/sounds/v1/tools/18v_cordless_drill_switch.ogg"
+preload="auto"></audio>
+
+<script>
+const pairsTA = document.getElementById('pairs');
+const playBtn = document.getElementById('play');
+const clearBtn = document.getElementById('clear');
+const stopBtn = document.getElementById('stop');
+const startScreen = document.getElementById('startScreen');
+const gameScreen = document.getElementById('gameScreen');
+const grid = document.getElementById('grid');
+const matchesEl = document.getElementById('matches');
+const clickSound = document.getElementById('clickSound');
+
+let deck = [];
+let activeCards = [];
+let firstPick = null;
+let lock = false;
+let matches = 0;
+
+function playClick(){
+  clickSound.currentTime = 0;
+  clickSound.play();
+}
+
+function parsePairs(text){
+  const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  const out=[];
+  for(let i=0;i<lines.length;i+=2){
+    if(lines[i+1]) out.push({front:lines[i],back:lines[i+1]});
+  }
+  return out;
+}
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+}
+
+function createCard(obj){
+  const d=document.createElement('div');
+  d.className='card fade-in';
+  d.textContent=obj.text;
+  d.dataset.id=obj.id;
+  d.onclick=()=>{playClick();selectCard(d)};
+  return d;
+}
+
+function buildGame(pairs){
+  shuffle(pairs);
+  deck=[];
+  pairs.forEach((p,i)=>{
+    deck.push({id:i,text:p.front});
+    deck.push({id:i,text:p.back});
+  });
+  shuffle(deck);
+
+  grid.innerHTML='';
+  activeCards=[];
+  for(let i=0;i<16 && deck.length;i++){
+    const c=createCard(deck.pop());
+    activeCards.push(c);
+    grid.appendChild(c);
+  }
+
+  matches=0;
+  matchesEl.textContent=0;
+  firstPick=null;
+}
+
+function replacePair(cardA,cardB){
+  cardA.classList.add('fade-out');
+  cardB.classList.add('fade-out');
+
+  setTimeout(()=>{
+    cardA.remove();
+    cardB.remove();
+
+    for(let i=0;i<2 && deck.length;i++){
+      const c=createCard(deck.pop());
+      activeCards.push(c);
+      grid.appendChild(c);
+    }
+  },400);
+}
+
+function selectCard(card){
+  if(lock||card.classList.contains('revealed'))return;
+  card.classList.add('revealed');
+
+  if(!firstPick){firstPick=card;return;}
+
+  if(firstPick.dataset.id===card.dataset.id){
+    matches++;
+    matchesEl.textContent=matches;
+    lock=true;
+    replacePair(firstPick,card);
+    setTimeout(()=>{lock=false},450);
+  }else{
+    lock=true;
+    setTimeout(()=>{
+      firstPick.classList.remove('revealed');
+      card.classList.remove('revealed');
+      lock=false;
+    },700);
+  }
+  firstPick=null;
+}
+
+playBtn.onclick=()=>{
+  const pairs=parsePairs(pairsTA.value);
+  if(pairs.length<8){alert('Need at least 8 pairs');return;}
+  localStorage.setItem('matchingPairs',pairsTA.value);
+  buildGame(pairs);
+  startScreen.classList.add('hidden');
+  gameScreen.classList.remove('hidden');
+};
+
+clearBtn.onclick=()=>{
+  pairsTA.value='';
+  localStorage.removeItem('matchingPairs');
+};
+
+stopBtn.onclick=()=>{
+  gameScreen.classList.add('hidden');
+  startScreen.classList.remove('hidden');
+};
+
+window.onload=()=>{
+  const saved=localStorage.getItem('matchingPairs');
+  if(saved)pairsTA.value=saved;
+};
+</script>
+</body>
+</html>
