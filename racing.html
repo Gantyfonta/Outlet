@@ -133,6 +133,7 @@ const modeSel = document.getElementById('mode');
 
 let pairs = [];
 let unused = [];
+let answeredCorrectly = new Set();
 let retryQueue = [];
 let progress = 0;
 const FINISH = 100;
@@ -155,13 +156,21 @@ function shuffle(a){
 }
 
 function nextQuestion(){
-  if(unused.length === 0){
-    unused = [...retryQueue, ...pairs];
+  // If no new questions left, but retries exist, append retries once
+  if(unused.length === 0 && retryQueue.length > 0){
+    unused = [...retryQueue];
     retryQueue = [];
   }
 
-  shuffle(unused);
-  const correct = unused.pop();
+  // If absolutely nothing left, race is complete
+  if(unused.length === 0){
+    defEl.textContent = 'Race complete! You mastered every word.';
+    choicesEl.innerHTML = '';
+    bar.style.width = '100%';
+    return;
+  }
+
+  const correct = unused.shift(); // strictly ordered, no reshuffle
 
   const mode = modeSel.value === 'random'
     ? (Math.random() < 0.5 ? 'wd' : 'dw')
@@ -204,21 +213,16 @@ function nextQuestion(){
 
 function pick(ok, pair){
   if(ok){
+    answeredCorrectly.add(pair);
     progress = Math.min(FINISH, progress + STEP);
     bar.style.width = progress + '%';
     bar.classList.remove('bad');
-
-    if(progress >= FINISH){
-      defEl.textContent = 'You finished the race!';
-      choicesEl.innerHTML = '';
-      return;
-    }
     nextQuestion();
   }else{
     progress = Math.max(0, progress - STEP);
     bar.style.width = progress + '%';
     bar.classList.add('bad');
-    retryQueue.push(pair);
+    retryQueue.push(pair); // guaranteed to return later
     setTimeout(()=>bar.classList.remove('bad'),300);
     nextQuestion();
   }
@@ -230,6 +234,8 @@ playBtn.onclick = ()=>{
   localStorage.setItem('racingPairs', pairsTA.value);
   localStorage.setItem('racingMode', modeSel.value);
   unused = [...pairs];
+  shuffle(unused);
+  answeredCorrectly.clear();
   retryQueue = [];
   progress = 0;
   bar.style.width = '0%';
