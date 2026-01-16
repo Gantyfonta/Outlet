@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vocab Matching Game</title>
+<title>Infinite Vocab Matching</title>
 
 <style>
 :root{--bg:#0f1724;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;color-scheme:dark}
@@ -65,14 +65,8 @@ button:hover{transform:scale(1.05)}
   color:#042027;
   font-weight:700
 }
-.card.fade-out{
-  opacity:0;
-  pointer-events:none
-}
-.card.fade-in{
-  opacity:0;
-  animation:fadeIn .4s forwards
-}
+.card.fade-out{opacity:0;pointer-events:none}
+.card.fade-in{opacity:0;animation:fadeIn .4s forwards}
 @keyframes fadeIn{to{opacity:1}}
 .info{margin-top:12px;color:var(--muted)}
 </style>
@@ -116,9 +110,9 @@ const matchesEl = document.getElementById('matches');
 const clickSound = document.getElementById('clickSound');
 
 let deck = [];
-let activeCards = [];
 let firstPick = null;
 let lock = false;
+let matchedThisRound = [];
 let matches = 0;
 
 function playClick(){
@@ -161,55 +155,66 @@ function buildGame(pairs){
   shuffle(deck);
 
   grid.innerHTML='';
-  activeCards=[];
+  matchedThisRound=[];
+
   for(let i=0;i<16 && deck.length;i++){
-    const c=createCard(deck.pop());
-    activeCards.push(c);
-    grid.appendChild(c);
+    grid.appendChild(createCard(deck.pop()));
   }
 
   matches=0;
   matchesEl.textContent=0;
   firstPick=null;
+  lock=false;
 }
 
-function replacePair(cardA,cardB){
-  cardA.classList.add('fade-out');
-  cardB.classList.add('fade-out');
+function replaceAllMatched(){
+  const toRemove=[...matchedThisRound];
+  matchedThisRound=[];
+
+  toRemove.forEach(c=>{ if(c) c.classList.add('fade-out'); });
 
   setTimeout(()=>{
-    cardA.remove();
-    cardB.remove();
+    toRemove.forEach(c=>{ if(c && c.parentNode) c.remove(); });
 
-    for(let i=0;i<2 && deck.length;i++){
-      const c=createCard(deck.pop());
-      activeCards.push(c);
-      grid.appendChild(c);
+    const slots = 16 - grid.children.length;
+    for(let i=0;i<slots && deck.length;i++){
+      const idx=Math.floor(Math.random()*deck.length);
+      grid.appendChild(createCard(deck.splice(idx,1)[0]));
     }
   },400);
 }
 
 function selectCard(card){
-  if(lock||card.classList.contains('revealed'))return;
+  if(lock || !card || card.classList.contains('revealed')) return;
   card.classList.add('revealed');
 
-  if(!firstPick){firstPick=card;return;}
+  if(!firstPick){
+    firstPick = card;
+    return;
+  }
 
-  if(firstPick.dataset.id===card.dataset.id){
+  const a = firstPick;
+  const b = card;
+  firstPick = null;
+
+  if(a.dataset.id === b.dataset.id && a !== b){
+    matchedThisRound.push(a,b);
     matches++;
-    matchesEl.textContent=matches;
-    lock=true;
-    replacePair(firstPick,card);
-    setTimeout(()=>{lock=false},450);
-  }else{
-    lock=true;
+    matchesEl.textContent = matches;
+
+    if(matchedThisRound.length === grid.children.length){
+      lock = true;
+      replaceAllMatched();
+      setTimeout(()=>{ lock = false; },450);
+    }
+  } else {
+    lock = true;
     setTimeout(()=>{
-      firstPick.classList.remove('revealed');
-      card.classList.remove('revealed');
-      lock=false;
+      if(a && a.classList) a.classList.remove('revealed');
+      if(b && b.classList) b.classList.remove('revealed');
+      lock = false;
     },700);
   }
-  firstPick=null;
 }
 
 playBtn.onclick=()=>{
