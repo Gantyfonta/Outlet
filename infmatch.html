@@ -109,7 +109,7 @@ const grid = document.getElementById('grid');
 const matchesEl = document.getElementById('matches');
 const clickSound = document.getElementById('clickSound');
 
-let deck = [];
+let remainingPairs = [];
 let firstPick = null;
 let lock = false;
 let matchedThisRound = [];
@@ -136,30 +136,38 @@ function shuffle(a){
   }
 }
 
-function createCard(obj){
+function createCard(id,text){
   const d=document.createElement('div');
   d.className='card fade-in';
-  d.textContent=obj.text;
-  d.dataset.id=obj.id;
+  d.textContent=text;
+  d.dataset.id=id;
   d.onclick=()=>{playClick();selectCard(d)};
   return d;
 }
 
+function dealRandomPair(){
+  if(remainingPairs.length === 0) return [];
+  const idx = Math.floor(Math.random()*remainingPairs.length);
+  const pair = remainingPairs.splice(idx,1)[0];
+  return [
+    createCard(pair.id, pair.front),
+    createCard(pair.id, pair.back)
+  ];
+}
+
 function buildGame(pairs){
-  shuffle(pairs);
-  deck=[];
-  pairs.forEach((p,i)=>{
-    deck.push({id:i,text:p.front});
-    deck.push({id:i,text:p.back});
-  });
-  shuffle(deck);
+  remainingPairs = pairs.map((p,i)=>({id:i,front:p.front,back:p.back}));
+  shuffle(remainingPairs);
 
   grid.innerHTML='';
   matchedThisRound=[];
 
-  for(let i=0;i<16 && deck.length;i++){
-    grid.appendChild(createCard(deck.pop()));
+  while(grid.children.length < 16 && remainingPairs.length){
+    dealRandomPair().forEach(c=>grid.appendChild(c));
   }
+
+  // TEST: every visible card must have exactly one matching partner
+  console.assert(grid.children.length % 2 === 0, 'Grid has odd number of cards');
 
   matches=0;
   matchesEl.textContent=0;
@@ -176,11 +184,15 @@ function replaceAllMatched(){
   setTimeout(()=>{
     toRemove.forEach(c=>{ if(c && c.parentNode) c.remove(); });
 
-    const slots = 16 - grid.children.length;
-    for(let i=0;i<slots && deck.length;i++){
-      const idx=Math.floor(Math.random()*deck.length);
-      grid.appendChild(createCard(deck.splice(idx,1)[0]));
+    while(grid.children.length < 16 && remainingPairs.length){
+      dealRandomPair().forEach(c=>grid.appendChild(c));
     }
+
+    // TEST: ensure no orphan cards exist
+    const ids=[...grid.children].map(c=>c.dataset.id);
+    ids.forEach(id=>{
+      console.assert(ids.filter(x=>x===id).length===2, 'Orphan card detected for id '+id);
+    });
   },400);
 }
 
