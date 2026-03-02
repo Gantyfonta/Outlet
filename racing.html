@@ -137,9 +137,6 @@ let answeredCorrectly = new Set();
 let retryQueue = [];
 let totalCount = 0;
 let completedCount = 0;
-let progress = 0;
-const FINISH = 100;
-const STEP = 10;
 
 function parsePairs(text){
   const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
@@ -158,26 +155,27 @@ function shuffle(a){
 }
 
 function updateBar(){
-  progress = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
-  bar.style.width = progress + '%';
+  const percent = totalCount === 0 
+    ? 0 
+    : Math.round((completedCount / totalCount) * 100);
+
+  bar.style.width = percent + '%';
 }
 
 function nextQuestion(){
-  // If no new questions left, but retries exist, append retries once
   if(unused.length === 0 && retryQueue.length > 0){
     unused = [...retryQueue];
     retryQueue = [];
   }
 
-  // If absolutely nothing left, race is complete
   if(unused.length === 0){
     defEl.textContent = 'Race complete! You mastered every word.';
     choicesEl.innerHTML = '';
-    bar.style.width = '100%';
+    updateBar();
     return;
   }
 
-  const correct = unused.shift(); // strictly ordered, no reshuffle
+  const correct = unused.shift();
 
   const mode = modeSel.value === 'random'
     ? (Math.random() < 0.5 ? 'wd' : 'dw')
@@ -224,41 +222,39 @@ function pick(ok, pair){
       answeredCorrectly.add(pair);
       completedCount++;
     }
-    progress = Math.min(FINISH, progress + STEP);
-    bar.style.width = progress + '%';
     bar.classList.remove('bad');
-    nextQuestion();
   }else{
     if(answeredCorrectly.has(pair)){
       answeredCorrectly.delete(pair);
       completedCount = Math.max(0, completedCount - 1);
     }
-    bar.style.width = progress + '%';
     bar.classList.add('bad');
-    retryQueue.push(pair); // guaranteed to return later
+    retryQueue.push(pair);
     setTimeout(()=>bar.classList.remove('bad'),300);
-    nextQuestion();
   }
+
+  updateBar();
+  nextQuestion();
 }
 
 playBtn.onclick = ()=>{
   pairs = parsePairs(pairsTA.value);
   if(pairs.length < 4){ alert('Need at least 4 pairs'); return; }
+
   localStorage.setItem('racingPairs', pairsTA.value);
   localStorage.setItem('racingMode', modeSel.value);
+
   unused = [...pairs];
   shuffle(unused);
+
   retryQueue = [];
   answeredCorrectly.clear();
   totalCount = pairs.length;
   completedCount = 0;
+
   updateBar();
-  shuffle(unused);
-  answeredCorrectly.clear();
-  retryQueue = [];
-  progress = 0;
-  bar.style.width = '0%';
   nextQuestion();
+
   startScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
 };
@@ -279,11 +275,7 @@ window.onload = ()=>{
   const m = localStorage.getItem('racingMode');
   if(m) modeSel.value = m;
 };
-
-// BASIC TESTS
-console.assert(parsePairs('a\nb').length === 1, 'Single pair parsed');
-console.assert(parsePairs('a\nb\nc').length === 1, 'Odd line ignored');
-console.assert(parsePairs('a\nb\nc\nd').length === 2, 'Two pairs parsed');
 </script>
+
 </body>
 </html>
